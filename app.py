@@ -10,6 +10,10 @@ import time
 import xlsxwriter
 from collections import deque
 import hydralit_components as hc
+from streamlit_option_menu import option_menu
+from streamlit import button
+
+
 
 
 
@@ -46,7 +50,7 @@ menu_id = hc.nav_bar(menu_definition=menu_data,home_name='Home',override_theme=o
 st.info(f"{menu_id=}")
 
 
-#uploading file from desktob
+#uploading file from desktop
 upload_file= st.file_uploader("Browse")
 if upload_file:
     signal_upload=pd.read_excel(upload_file)
@@ -55,7 +59,7 @@ if upload_file:
     st.plotly_chart(signal_figure,use_container_width=True)
 
 
-#drawing noramal sine
+#drawing normal sine
 frequency = st.slider("Fmax", min_value=0)
 amplitude = st.slider("Amplitude", min_value=0)
 Fs = 1000    #Sampling Freqyency
@@ -71,13 +75,14 @@ output = BytesIO()
 # See: https://xlsxwriter.readthedocs.io/workbook.html?highlight=BytesIO#constructor
 workbook = xlsxwriter.Workbook(output, {'in_memory': True})
 worksheet = workbook.add_worksheet()
-worksheet.write_column(0,0,signal)
+worksheet.write_column(0,0,t)
+worksheet.write_column(0,1,signal)
 workbook.close()
 
 st.download_button(
-    label="Download Excel workbook",
+    label="Download",
     data=output.getvalue(),
-    file_name="workbook.xlsx",
+    file_name="signal.xlsx",
     mime="application/vnd.ms-excel"
 )
 
@@ -87,3 +92,6 @@ noise = st.checkbox('Add noise')
 if noise:
     number = st.number_input('Insert SNR')
     st.write('The current value is ', number)
+
+
+
