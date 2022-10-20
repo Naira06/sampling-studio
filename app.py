@@ -14,6 +14,7 @@ from collections import deque
 import hydralit_components as hc
 from streamlit_option_menu import option_menu
 from streamlit import button
+from scipy.interpolate import interp1d, interp2d,splev
 
 
 st.set_page_config(page_title="sampling studio", page_icon=":bar_chart:",layout="wide")
@@ -33,7 +34,16 @@ with open("style.css") as source_des:
 
 Fs = 1000    #Sampling Freqyency    
 t = np.arange(0, 1 + 1 / Fs, 1 / Fs)    # Time
+d=[]
 
+
+def draw(x_axis,y_axis):
+    st.plotly_chart(fig, use_container_width=True)
+def demo():
+    y_demo=np.sin(2 * np.pi * t)
+    fig=px.line(y_demo,x=t,y=y_demo)
+
+    
 #Adding noise to signal
 def Noise(Data, number):
     #Get signal power
@@ -78,22 +88,6 @@ def add_signal():
     Include_signal= Add_Am * np.sin( 2 * np.pi * Add_F* t)
     return Include_signal
 
-def sampling():
-    T=1/frequency_sample
-    n_Sample=np.arange(0,1/T)
-    t_sample = n_Sample * T
-    signal_sample = amplitude * np.sin(2 * np.pi * frequency * t_sample)
-    fig.add_scatter(x=t_sample, y=signal_sample, mode='markers')
-    Inter= st.sidebar.button('Interpolation')
-    if Inter:
-        sum=0
-        for i in n_Sample:
-            s_sample = amplitude * np.sin(2 * np.pi * frequency *i* T)
-            sum+= np.dot(s_sample,np.sinc((t-i*T)/T))
-        fig2 = px.line(sum, x=t, y=sum)
-        st.plotly_chart(fig2, use_container_width=True)
-
-
 
 
 # horizontal menu
@@ -123,11 +117,12 @@ if selected2=="Upload":
             signal_figure.add_scatter(x=t, y=add_signal(), mode="lines")
         st.plotly_chart(signal_figure,use_container_width=True)
 
-elif selected2=="Generate":
+elif selected2=="Home":
+
     #drawing normal sine
     frequency = st.sidebar.slider("Fmax", min_value=0)
     amplitude = st.sidebar.slider("Amplitude", min_value=0)
-    sampleRate = st.sidebar.slider("sample rate", min_value=1,max_value=10)
+    sampleRate = st.sidebar.slider("sample rate", min_value=0,max_value=10)
     signal = amplitude * np.sin(2 * np.pi * frequency * t)
     frequency_sample= sampleRate*frequency
     noise = st.sidebar.checkbox('Add noise')
@@ -149,12 +144,29 @@ elif selected2=="Generate":
     addSignal = st.sidebar.checkbox('Add Signal')
     if addSignal:
         fig.add_scatter(x=t, y=add_signal(), mode="lines")
-    #sampling func
-    if frequency_sample!=0:
-        sampling()
-           
 
     st.plotly_chart(fig, use_container_width=True)
+    
+    #sampling func
+    if frequency_sample!=0:
+        T=1/frequency_sample
+        n_Sample=np.arange(0,1/T)
+        t_sample = n_Sample * T
+        signal_sample = amplitude * np.sin(2 * np.pi * frequency * t_sample)
+        fig2=px.scatter(x=t_sample, y=signal_sample)
+        
+        Inter=st.checkbox("interpolation")
+        if Inter:
+            sum=0
+            for i in n_Sample:
+                s_sample = amplitude * np.sin(2 * np.pi * frequency *i* T)
+                sum+= np.dot(s_sample,np.sinc((t-i*T)/T))
+            fig2.add_scatter(x=t, y=sum, mode="lines")
+        
+        st.plotly_chart(fig2, use_container_width=True)
+        
+           
+
     download(t,signal)
     
       
