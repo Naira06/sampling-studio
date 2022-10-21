@@ -34,6 +34,27 @@ st.markdown(hide_st_style, unsafe_allow_html=True)
 with open("style.css") as source_des:
     st.markdown(f"""<style>{source_des.read()}</style>""", unsafe_allow_html=True)
 
+
+ColorMinMax = st.markdown(''' <style> div.stSlider > div[data-baseweb = "slider"] > div[data-testid="stTickBar"] > div {
+    background: rgb(1 1 1 / 0%); } </style>''', unsafe_allow_html = True)
+
+
+Slider_Cursor = st.markdown(''' <style> div.stSlider > div[data-baseweb="slider"] > div > div > div[role="slider"]{
+    background-color: rgb(14, 38, 74); box-shadow: rgb(14 38 74 / 20%) 0px 0px 0px 0.2rem;} </style>''', unsafe_allow_html = True)
+
+    
+Slider_Number = st.markdown(''' <style> div.stSlider > div[data-baseweb="slider"] > div > div > div > div
+                                { color: rgb(14, 38, 74); } </style>''', unsafe_allow_html = True)
+    
+
+col = f''' <style> div.stSlider > div[data-baseweb = "slider"] > div > div {{
+    background: linear-gradient(to right,rgba(151, 166, 195, 0.25)  0%, 
+                                 rgba(151, 166, 195, 0.25) , 
+                                rgb(1, 183, 158), 
+                                rgb(1, 183, 158) 100%); }} </style>'''
+
+ColorSlider = st.markdown(col, unsafe_allow_html = True)
+
 Fs = 1000    #Sampling Freqyency    
 t = np.arange(0, 1 + 1 / Fs, 1 / Fs)    # Time
 d=[]
@@ -43,9 +64,11 @@ def draw(x_axis,y_axis):
     st.plotly_chart(fig, use_container_width=True)
 def demo():
     y_demo=np.sin(2 * np.pi * t)
-    fig=px.line(y_demo,x=t,y=y_demo)
+    fig3=px.line(y_demo,x=t,y=y_demo)
+    st.plotly_chart(fig3, use_container_width=True)
 
-    
+
+ 
 #Adding noise to signal
 def Noise(Data, number):
     snr = 10.0**(number/10.0)
@@ -89,7 +112,7 @@ def add_signal():
 
 # horizontal menu
 selected2 = option_menu(None, ["Home", "Upload", 'History'], 
-    icons=['house', 'folder', 'play', "save", '💀'], 
+    icons=['house', 'folder', "save", '💀'], 
     menu_icon="cast", default_index=0, orientation="horizontal" ,
     styles={
         "container": {"padding": "0 px"},
@@ -128,20 +151,29 @@ elif selected2=="Home":
         new_signal = Noise(signal, number)
         signal = amplitude * np.sin(2 * np.pi * frequency * t) + new_signal
     
+    addSignal = st.sidebar.checkbox('Add Signal')
     
-    sumSignal = st.sidebar.checkbox('Sum Signal')
-    if sumSignal:
-        
+
+    fig = px.line(signal, x=t, y=signal)
+
+    
+    if addSignal:
+        added= add_signal()
+        sumSignal = st.sidebar.button('Sum Signals')
+        fig.add_scatter(x=t, y=added, mode="lines")
+        if sumSignal:
+                s2= sum_signal(signal,added)  
+                fig = px.line(s2, x=t, y=s2)
+    sum = st.sidebar.checkbox('Sum Signal')
+    if sum:
             freq_sum = st.sidebar.slider("Add frequency")
             amp_sum = st.sidebar.slider("Add amplitude")
             new= amp_sum * np.sin( 2 * np.pi * freq_sum* t)
             signal= sum_signal(signal,new)
-
-    fig = px.line(signal, x=t, y=signal)
-    addSignal = st.sidebar.checkbox('Add Signal')
-    if addSignal:
-        fig.add_scatter(x=t, y=add_signal(), mode="lines")
-
+            fig = px.line(signal, x=t, y=signal)
+            
+    
+    
     st.plotly_chart(fig, use_container_width=True)
     
     #sampling func
@@ -162,7 +194,9 @@ elif selected2=="Home":
         
         st.plotly_chart(fig2, use_container_width=True)
         
-           
+    d1= st.sidebar.button("Demo")  #demo sin with amp. 1
+    if d1:
+      demo()      
 
     download(t,signal)
     
