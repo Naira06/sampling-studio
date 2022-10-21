@@ -3,6 +3,7 @@ from io import BytesIO
 from re import X
 from tkinter import Button
 import numpy as np
+import scipy
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -14,6 +15,7 @@ from collections import deque
 import hydralit_components as hc
 from streamlit_option_menu import option_menu
 from streamlit import button
+import scipy as sc
 from scipy.interpolate import interp1d, interp2d,splev
 
 
@@ -46,17 +48,12 @@ def demo():
     
 #Adding noise to signal
 def Noise(Data, number):
-    #Get signal power
-    Signal_power = Data[:][1]**2
-    SignalPowerAVG = np.mean(Signal_power)
-    SignalPower_DB = 10*np.log10(SignalPowerAVG)
-    #Noise
-    SNR = number
-    #getting noise
-    Noise_DB = SignalPower_DB - SNR
-    Noise_watts = 10**(Noise_DB/10)
-    noise = np.random.normal(0,np.sqrt(Noise_watts), len(Data))
-    return noise
+    snr = 10.0**(number/10.0)
+    p1 = Data.var()   #power signal
+    Noise = p1/snr
+    w = sc.sqrt(Noise)*sc.randn(1001)    #Noise Signal
+        
+    return w
 
 
 #download a file as excel
@@ -83,15 +80,15 @@ def sum_signal(data, y):
     return newSignal
 
 def add_signal():
-    Add_F= st.sidebar.number_input("Fmax")
-    Add_Am = st.sidebar.number_input("Amplitude")        
+    Add_F= st.sidebar.slider("F(max)")
+    Add_Am = st.sidebar.slider("Amp.")        
     Include_signal= Add_Am * np.sin( 2 * np.pi * Add_F* t)
     return Include_signal
 
 
 
 # horizontal menu
-selected2 = option_menu(None, ["Home", "Upload", "Generate", 'History'], 
+selected2 = option_menu(None, ["Home", "Upload", 'History'], 
     icons=['house', 'folder', 'play', "save", '💀'], 
     menu_icon="cast", default_index=0, orientation="horizontal" ,
     styles={
@@ -109,7 +106,7 @@ if selected2=="Upload":
     upload_file= st.file_uploader("Browse")
     if upload_file:
         signal_upload=pd.read_excel(upload_file)
-        signal_figure= px.line(signal_upload, x=signal_upload.columns[0], y=signal_upload.columns[1], title="The normal signal")
+        signal_figure= px.line(signal_upload, x=signal_upload.columns[0], y=signal_upload.columns[1], title="The normal signal")
         y_signal= signal_upload.columns[1]
         addSignal = st.checkbox('Add Signal')
         sumSignal = st.checkbox('Sum Signal')
@@ -127,7 +124,7 @@ elif selected2=="Home":
     frequency_sample= sampleRate*frequency
     noise = st.sidebar.checkbox('Add noise')
     if noise:
-        number = st.sidebar.number_input('Insert SNR')
+        number = st.sidebar.slider('Insert SNR')
         new_signal = Noise(signal, number)
         signal = amplitude * np.sin(2 * np.pi * frequency * t) + new_signal
     
@@ -168,8 +165,6 @@ elif selected2=="Home":
            
 
     download(t,signal)
-    
-      
     
 
 
