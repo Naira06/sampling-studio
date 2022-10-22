@@ -17,6 +17,7 @@ from streamlit_option_menu import option_menu
 from streamlit import button
 import scipy as sc
 from scipy.interpolate import interp1d, interp2d,splev
+from math import ceil,floor
 
 
 st.set_page_config(page_title="sampling studio", page_icon=":bar_chart:",layout="wide")
@@ -57,13 +58,27 @@ ColorSlider = st.markdown(col, unsafe_allow_html = True)
 
 Fs = 1000    #Sampling Freqyency    
 t = np.arange(0, 1 + 1 / Fs, 1 / Fs)    # Time
-d=[]
 
-def freqfinder(signal):
-    x=np.fft.fft(signal)
-    x=np.abs(x)
-    x=np.max(x)
-    return x
+def find_amplitude(signal):
+    np_fft = np.fft.fft(signal)
+    amplitudes = 2 / 1002* np.abs(np_fft) 
+    return ceil(max(amplitudes))
+
+
+def max_frequency(magnitude=[],time=[]):
+    sample_period = time[1]-time[0]
+    n_samples = len(time)
+    fft_magnitudes=np.abs(np.fft.fft(magnitude))
+    fft_frequencies = np.fft.fftfreq(n_samples, sample_period)
+    fft_clean_frequencies_array = []
+    for i in range(len(fft_frequencies)):
+        if fft_magnitudes[i] > 22:
+            fft_clean_frequencies_array.append(fft_frequencies[i])
+    max_freq = max(fft_clean_frequencies_array)
+    if max_freq >42:
+        return floor(max_freq)
+    else: return ceil(max_freq) 
+
 
 def demo():
     y_demo=np.sin(2 * np.pi * t)
@@ -88,8 +103,15 @@ def download(time , magnitude):
     # See: https://xlsxwriter.readthedocs.io/workbook.html?highlight=BytesIO#constructor
     workbook = xlsxwriter.Workbook(output, {'in_memory': True})
     worksheet = workbook.add_worksheet()
+    worksheet.write(0,0,0)
+    worksheet.write(0,1,0)
     worksheet.write_column(0,0,time)
     worksheet.write_column(0,1,magnitude)
+    add_number_x=[-2.93915E-15]
+    add_number_y=[1]
+    worksheet.write_column(1001,1,add_number_x)
+    worksheet.write_column(1001,0,add_number_y)
+
     workbook.close()
     #Button of downloading
     st.sidebar.download_button(
@@ -131,13 +153,76 @@ if selected2=="Upload":
     upload_file= st.file_uploader("Browse")
     if upload_file:
         signal_upload=pd.read_excel(upload_file)
-        signal_figure= px.line(signal_upload, x=signal_upload.columns[0], y=signal_upload.columns[1], title="The normal signal")
-        y_signal= signal_upload.columns[1]
+        y_signal= signal_upload[signal_upload.columns[1]]
+        x_signal= signal_upload[signal_upload.columns[0]]
+        frequency= max_frequency(y_signal,x_signal)
+        amplitude=find_amplitude(y_signal)
+
+
+    
+        sampleRate = st.sidebar.slider("sample rate", min_value=0,max_value=10)
         addSignal = st.checkbox('Add Signal')
         sumSignal = st.checkbox('Sum Signal')
+        noise_ck = st.checkbox('Add Noise') 
+
+        if noise_ck:
+            number = st.sidebar.slider('Insert SNR')
+            new_signal = Noise(y_signal, number,1001)
+            y_signal = amplitude * np.sin(2 * np.pi * frequency * t) + new_signal
+
+        if sumSignal:
+            freq_sum = st.sidebar.slider("Add frequency")
+            amp_sum = st.sidebar.slider("Add amplitude")
+            new= amp_sum * np.sin( 2 * np.pi * freq_sum* t)
+            y_signal=sum_signal(y_signal,new)
+        
+        signal_figure= px.line(signal_upload, x=x_signal, y=y_signal, title="The normal signal")
+        
         if addSignal:
-            signal_figure.add_scatter(x=t, y=add_signal(), mode="lines")
+            added= add_signal()
+            sumSignal = st.sidebar.button('Sum Signals')
+            signal_figure.add_scatter(x=t, y=added, mode="lines")
+            if sumSignal:
+                    y_signal= sum_signal(y_signal,added)  
+                    signal_figure = px.line(y_signal, x=t, y=y_signal)
+                    
         st.plotly_chart(signal_figure,use_container_width=True)
+    
+        #sampling func
+        frequency_sample=frequency*sampleRate
+        if frequency_sample!=0:
+            T=1/frequency_sample
+            n_Sample=np.arange(0,1/T)
+            t_sample = n_Sample * T
+            if noise_ck:
+                new_signal = Noise(y_signal, number,frequency_sample)
+                signal_sample = amplitude * np.sin(2 * np.pi * frequency * t_sample)+new_signal
+
+            else:
+                signal_sample = amplitude * np.sin(2 * np.pi * frequency * t_sample)
+
+            fig2=px.scatter(x=t_sample, y=signal_sample)
+            
+            Inter=st.checkbox("interpolation")
+            if Inter:
+                sum=0
+                if noise_ck:
+                    snr = 10.0**(number/10.0)
+                    p1 = y_signal.var()   #power signal
+                    Noise = p1/snr
+                    for i in n_Sample:
+                        s_sample = amplitude * np.sin(2 * np.pi * frequency *i* T)+sc.sqrt(Noise)
+                        sum+= np.dot(s_sample,np.sinc((t-i*T)/T))
+                
+                else:
+                    for i in n_Sample:
+                        s_sample = amplitude * np.sin(2 * np.pi * frequency *i* T)
+                        sum+= np.dot(s_sample,np.sinc((t-i*T)/T))
+                fig2.add_scatter(x=t, y=sum, mode="lines")
+            
+            st.plotly_chart(fig2, use_container_width=True)
+
+        download(x_signal,y_signal)
 
 elif selected2=="Home":
 
@@ -169,8 +254,8 @@ elif selected2=="Home":
         sumSignal = st.sidebar.button('Sum Signals')
         fig.add_scatter(x=t, y=added, mode="lines")
         if sumSignal:
-                s2= sum_signal(signal,added)  
-                fig = px.line(s2, x=t, y=s2)
+                signal= sum_signal(signal,added)  
+                fig = px.line(signal, x=t, y=signal)
     sum = st.sidebar.checkbox('Sum Signal')
     if sum:
             freq_sum = st.sidebar.slider("Add frequency")
@@ -179,7 +264,6 @@ elif selected2=="Home":
             signal= sum_signal(signal,new)
             fig = px.line(signal, x=t, y=signal)
             
-    
     
     st.plotly_chart(fig, use_container_width=True)
     
@@ -200,9 +284,20 @@ elif selected2=="Home":
         Inter=st.checkbox("interpolation")
         if Inter:
             sum=0
-            for i in n_Sample:
-                s_sample = amplitude * np.sin(2 * np.pi * frequency *i* T)
-                sum+= np.dot(s_sample,np.sinc((t-i*T)/T))
+            if noise:
+                snr = 10.0**(number/10.0)
+                p1 = signal.var()   #power signal
+                Noise = p1/snr
+                for i in n_Sample:
+                    s_sample = amplitude * np.sin(2 * np.pi * frequency *i* T)+sc.sqrt(Noise)
+                    sum+= np.dot(s_sample,np.sinc((t-i*T)/T))
+                
+
+            else:
+                for i in n_Sample:
+                    s_sample = amplitude * np.sin(2 * np.pi * frequency *i* T)
+                    sum+= np.dot(s_sample,np.sinc((t-i*T)/T))
+        
             fig2.add_scatter(x=t, y=sum, mode="lines")
         
         st.plotly_chart(fig2, use_container_width=True)
