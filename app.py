@@ -59,22 +59,24 @@ Fs = 1000    #Sampling Freqyency
 t = np.arange(0, 1 + 1 / Fs, 1 / Fs)    # Time
 d=[]
 
+def freqfinder(signal):
+    x=np.fft.fft(signal)
+    x=np.abs(x)
+    x=np.max(x)
+    return x
 
-def draw(x_axis,y_axis):
-    st.plotly_chart(fig, use_container_width=True)
 def demo():
     y_demo=np.sin(2 * np.pi * t)
-    fig3=px.line(y_demo,x=t,y=y_demo)
-    st.plotly_chart(fig3, use_container_width=True)
+    return y_demo
 
 
  
 #Adding noise to signal
-def Noise(Data, number):
+def Noise(Data, number,n):
     snr = 10.0**(number/10.0)
     p1 = Data.var()   #power signal
     Noise = p1/snr
-    w = sc.sqrt(Noise)*sc.randn(1001)    #Noise Signal
+    w = sc.sqrt(Noise)*sc.randn(n)    #Noise Signal
         
     return w
 
@@ -140,15 +142,20 @@ if selected2=="Upload":
 elif selected2=="Home":
 
     #drawing normal sine
+    demo_btn =st.sidebar.button("Demo")
+
     frequency = st.sidebar.slider("Fmax", min_value=0)
     amplitude = st.sidebar.slider("Amplitude", min_value=0)
     sampleRate = st.sidebar.slider("sample rate", min_value=0,max_value=10)
     signal = amplitude * np.sin(2 * np.pi * frequency * t)
     frequency_sample= sampleRate*frequency
     noise = st.sidebar.checkbox('Add noise')
+
+    if demo_btn:
+        signal= demo()
     if noise:
         number = st.sidebar.slider('Insert SNR')
-        new_signal = Noise(signal, number)
+        new_signal = Noise(signal, number,1001)
         signal = amplitude * np.sin(2 * np.pi * frequency * t) + new_signal
     
     addSignal = st.sidebar.checkbox('Add Signal')
@@ -181,7 +188,13 @@ elif selected2=="Home":
         T=1/frequency_sample
         n_Sample=np.arange(0,1/T)
         t_sample = n_Sample * T
-        signal_sample = amplitude * np.sin(2 * np.pi * frequency * t_sample)
+        if noise:
+            new_signal = Noise(signal, number,frequency_sample)
+            signal_sample = amplitude * np.sin(2 * np.pi * frequency * t_sample)+new_signal
+
+        else:
+            signal_sample = amplitude * np.sin(2 * np.pi * frequency * t_sample)
+        
         fig2=px.scatter(x=t_sample, y=signal_sample)
         
         Inter=st.checkbox("interpolation")
@@ -193,10 +206,7 @@ elif selected2=="Home":
             fig2.add_scatter(x=t, y=sum, mode="lines")
         
         st.plotly_chart(fig2, use_container_width=True)
-        
-    d1= st.sidebar.button("Demo")  #demo sin with amp. 1
-    if d1:
-      demo()      
+            
 
     download(t,signal)
     
